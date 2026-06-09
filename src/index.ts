@@ -6,6 +6,7 @@ import http from 'http';
 import { config } from './config.js';
 import { initializeTelemetry } from './telemetry/bootstrap.js';
 import { logInfo, logWarn } from './telemetry/events.js';
+import { createWorkers, getWorkers } from './mediasoup/workers.js';
 
 // ── Worker registry seam ────────────────────────────────────────────────────
 // The SIGTERM drain closes whatever workers the mediasoup module owns. Plan 02's
@@ -38,10 +39,15 @@ logInfo('sfu config loaded', {
 });
 
 // === media + signaling + admin servers mount here (Plans 02/03/04) ===
-// Plan 02: await createWorkers() (then registerWorkers(workers)) — immediately after
-//          telemetry init, before the WS gateway.
+// Plan 02: the mediasoup worker pool — created here, immediately after telemetry
+//          init and before the WS gateway. Each worker owns one shared-port
+//          WebRtcServer with the static announcedAddress (D-03).
 // Plan 03: the WS signaling gateway.
 // Plan 04: the admin server (extends the health surface below with /readiness + admin).
+await createWorkers();
+// Hand the pool to the SIGTERM drain via the Plan-01 seam — the drain handler
+// already closes whatever is registered, so no handler edit is needed.
+registerWorkers(getWorkers());
 
 // ── Health placeholder (Plan 04 extends with /readiness + admin) ─────────────
 const HEALTH_PORT = config.rtcBasePort - 1;
