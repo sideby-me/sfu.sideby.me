@@ -2,12 +2,12 @@
 // media incidents — the hardest class to debug post-hoc — are always observable
 // (RESEARCH line 557, Pitfall 16). Later plans wire mediasoup/signaling/admin into
 // the labeled mount-point below WITHOUT reordering telemetry or touching the drain.
-import http from 'http';
 import { config } from './config.js';
 import { initializeTelemetry } from './telemetry/bootstrap.js';
 import { logInfo, logWarn } from './telemetry/events.js';
 import { createWorkers, getWorkers } from './mediasoup/workers.js';
 import { initSignalingServer } from './signaling/gateway.js';
+import { mountAdmin } from './http/admin.js';
 
 // ── Worker registry seam ────────────────────────────────────────────────────
 // The SIGTERM drain closes whatever workers the mediasoup module owns. Plan 02's
@@ -55,34 +55,19 @@ registerWorkers(getWorkers());
 // The returned ws.Server is registered with the drain (close() matches the seam's
 // ClosableWorker shape) so a SIGTERM stops accepting + closes open sockets.
 const signalingServer = initSignalingServer();
-registerWorkers([...getWorkers(), { close: () => signalingServer.close() }]);
 
-// ── Health placeholder (Plan 04 extends with /readiness + admin) ─────────────
-const HEALTH_PORT = config.rtcBasePort - 1;
-
-const healthServer = http.createServer((req, res) => {
-  if (req.url === '/_health') {
-    res.statusCode = 200;
-    res.setHeader('content-type', 'text/plain; charset=utf-8');
-    res.setHeader('cache-control', 'no-store');
-    res.end("oh hello! it works btw, if that's what you are wondering");
-    return;
-  }
-
-  if (req.url === '/health') {
-    res.statusCode = 200;
-    res.setHeader('content-type', 'application/json; charset=utf-8');
-    res.end(JSON.stringify({ status: 'ok', service: 'sfu' }));
-    return;
-  }
-
-  res.statusCode = 404;
-  res.end();
-});
-
-healthServer.listen(HEALTH_PORT, () => {
-  logInfo('sfu health server listening', { domain: 'bootstrap', event: 'health_listen', port: HEALTH_PORT });
-});
+// Plan 04: the S2S admin + health/readiness surface. Mounted AFTER createWorkers()
+// because GET /readiness asserts the worker pool is up (getWorkers().length > 0).
+// It replaces the Plan-01 inline /_health + /health placeholder and adds the
+// X-Sfu-Secret-gated POST /rooms ensure-room entry on an INTERNAL port (never the
+// public SNI router — Plan 05 firewalls it). The admin server is closed on SIGTERM
+// via the same drain seam as the workers + signaling server.
+const adminServer = mountAdmin();
+registerWorkers([
+  ...getWorkers(),
+  { close: () => signalingServer.close() },
+  { close: () => adminServer.close() },
+]);
 
 // ── Graceful drain ───────────────────────────────────────────────────────────
 // Stop accepting new rooms, drain mediasoup workers (C++ subprocesses — no GC),
@@ -96,7 +81,8 @@ async function drain(signal: NodeJS.Signals): Promise<void> {
   logInfo('received signal, draining...', { domain: 'bootstrap', event: 'signal_received', signal });
 
   try {
-    healthServer.close();
+    // The admin/health server and the signaling server are both registered in
+    // `workers` via the Plan-01 seam, so closing the registry drains them all.
     await Promise.all(workers.map(w => w.close()));
   } catch (err) {
     logWarn('drain encountered an error', {
