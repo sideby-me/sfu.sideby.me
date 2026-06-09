@@ -1,0 +1,42 @@
+{
+  "name": "sfu",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx --watch src/index.ts",
+    "start": "node --import tsx src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "format": "prettier --write src/",
+    "test": "vitest run --reporter=verbose"
+  },
+  "dependencies": {
+    "@opentelemetry/api-logs": "^0.214.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.72.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.214.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.214.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.214.0",
+    "@opentelemetry/resources": "^2.1.0",
+    "@opentelemetry/sdk-logs": "^0.214.0",
+    "@opentelemetry/sdk-metrics": "^2.1.0",
+    "@opentelemetry/sdk-node": "^0.214.0",
+    "awaitqueue": "3.3.0",
+    "dotenv": "^16.4.7",
+    "mediasoup": "3.20.5",
+    "mediasoup-client": "3.20.0",
+    "ws": "8.21.0",
+    "zod": "^4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/ws": "^8.5.13",
+    "eslint": "^9.18.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.20.0",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0",
+    "vitest": "^4.1.0"
+  }
+}
