@@ -1,9 +1,9 @@
 // MediaRoom — the in-memory model behind one opaque mediaRoomId.
 //
 // HARD INVARIANT (SFU-02 / Pitfall 11): a MediaRoom holds ONLY opaque identifiers.
-// There is deliberately no roomId / userId / displayName / roomType / ott field —
-// the SFU knows nothing about sideby products. A conference is exactly one Router
-// plus a Map of opaque participantId → Peer.
+// There is deliberately no product-level room key, user, name, room kind, or OTT
+// field — the SFU knows nothing about sideby products. A conference is exactly one
+// Router plus a Map of opaque participantId → Peer.
 import type { Router } from 'mediasoup/node/lib/types.js';
 import type { Peer } from './peer.js';
 

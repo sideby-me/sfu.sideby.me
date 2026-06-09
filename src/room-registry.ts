@@ -6,7 +6,7 @@
 // garbage collection, so an empty room's Router is explicitly closed after a grace
 // window — a rejoin within the window cancels the reclaim and reuses the Router.
 //
-// HARD INVARIANT (Pitfall 11): only opaque IDs live here — no roomId/userId/etc.
+// HARD INVARIANT (Pitfall 11): only opaque IDs live here — no product identifiers.
 import { config } from './config.js';
 import { getNextWorker } from './mediasoup/workers.js';
 import { mediaCodecs } from './mediasoup/codecs.js';
