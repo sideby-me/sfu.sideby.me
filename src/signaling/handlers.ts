@@ -70,6 +70,8 @@ function requireJoined(session: Session): { room: MediaRoom; peer: Peer; partici
 // rtpCapabilities, the freshly-minted coturn iceServers (TURN-03), and the list of
 // existing producers so the joiner auto-consumes them.
 export async function handleJoin(session: Session, message: JoinMessage): Promise<Record<string, unknown>> {
+  // Defence in depth: the gateway gates join via verifyJoin at the boundary, but the
+  // handler re-checks so handleJoin is never reachable with an un-vetted message.
   const decision = verifyJoin(message);
   if (!decision.ok) {
     throw new Error(`join rejected: ${decision.reason ?? 'unauthorized'}`);

@@ -7,6 +7,7 @@ import { config } from './config.js';
 import { initializeTelemetry } from './telemetry/bootstrap.js';
 import { logInfo, logWarn } from './telemetry/events.js';
 import { createWorkers, getWorkers } from './mediasoup/workers.js';
+import { initSignalingServer } from './signaling/gateway.js';
 
 // ── Worker registry seam ────────────────────────────────────────────────────
 // The SIGTERM drain closes whatever workers the mediasoup module owns. Plan 02's
@@ -48,6 +49,13 @@ await createWorkers();
 // Hand the pool to the SIGTERM drain via the Plan-01 seam — the drain handler
 // already closes whatever is registered, so no handler edit is needed.
 registerWorkers(getWorkers());
+
+// Plan 03: the WS signaling gateway. Started AFTER createWorkers() — its handlers
+// create transports on the per-worker WebRtcServer, so the pool must exist first.
+// The returned ws.Server is registered with the drain (close() matches the seam's
+// ClosableWorker shape) so a SIGTERM stops accepting + closes open sockets.
+const signalingServer = initSignalingServer();
+registerWorkers([...getWorkers(), { close: () => signalingServer.close() }]);
 
 // ── Health placeholder (Plan 04 extends with /readiness + admin) ─────────────
 const HEALTH_PORT = config.rtcBasePort - 1;
