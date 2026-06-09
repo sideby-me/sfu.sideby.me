@@ -46,6 +46,7 @@ export async function ensureRoom(mediaRoomId: string): Promise<MediaRoom> {
   const room: MediaRoom = {
     mediaRoomId,
     router,
+    worker,
     peers: new Map(),
     reclaimTimer: undefined,
   };

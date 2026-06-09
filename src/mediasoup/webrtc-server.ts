@@ -18,6 +18,11 @@
 import type { Worker, WebRtcServer } from 'mediasoup/node/lib/types.js';
 import { config } from '../config.js';
 
+// Each worker owns exactly one WebRtcServer; the signaling handlers (Plan 03) need
+// the handle to create transports via `router.createWebRtcTransport({ webRtcServer })`
+// (the shared-port path). Keyed by Worker so getWebRtcServer(worker) resolves it.
+const serversByWorker = new WeakMap<Worker, WebRtcServer>();
+
 /**
  * Create exactly one WebRtcServer for `worker`, bound to a shared port derived
  * from `config.rtcBasePort + workerIndex` (distinct per worker). Both udp and tcp
@@ -26,7 +31,7 @@ import { config } from '../config.js';
 export async function createWebRtcServer(worker: Worker, workerIndex: number): Promise<WebRtcServer> {
   const port = config.rtcBasePort + workerIndex;
 
-  return worker.createWebRtcServer({
+  const server = await worker.createWebRtcServer({
     listenInfos: [
       {
         protocol: 'udp',
@@ -42,4 +47,21 @@ export async function createWebRtcServer(worker: Worker, workerIndex: number): P
       },
     ],
   });
+
+  serversByWorker.set(worker, server);
+  return server;
+}
+
+/**
+ * The WebRtcServer owned by `worker` (created in createWebRtcServer). The Plan 03
+ * signaling handlers pass this to `router.createWebRtcTransport({ webRtcServer })`
+ * so every transport rides the worker's shared port. Throws if the worker has no
+ * server yet (programmer error — createWorkers() not run).
+ */
+export function getWebRtcServer(worker: Worker): WebRtcServer {
+  const server = serversByWorker.get(worker);
+  if (!server) {
+    throw new Error('getWebRtcServer() called for a worker with no WebRtcServer — run createWorkers() first');
+  }
+  return server;
 }
