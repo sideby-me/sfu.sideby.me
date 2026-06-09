@@ -1,0 +1,51 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# sfu.sideby.me — three-service deploy stack (single dedicated droplet, D-01/D-02)
+#
+# D-01/D-02: the SFU + coturn co-locate on ONE new dedicated droplet as an
+# independent service root — NEVER co-located on the lens or sync droplets.
+#
+# Every service uses host networking (MANDATORY — RTC reachability + correct ICE
+# addresses; the Docker bridge/userland-proxy rewrites the source/dest IPs ICE
+# relies on — Pitfall 2) and tini PID-1 via init (reaps the mediasoup C++ worker
+# zombies and forwards SIGTERM — Pitfall 4). There is NO bridge port mapping.
+#
+# Port map (host networking — all share the host's port namespace):
+#   nginx-sni : 443  (SNI router, ssl_preread, NO TLS termination — D-05/D-06)
+#   sfu (WSS) : 8443 (sfu.sideby.me backend; terminates its own WSS TLS — RESEARCH Q1)
+#   coturn    : 5349 (turns: TLS) + 3478 (turn/stun) + 49152-65535/udp (relay range)
+#   sfu admin : internal (SFU_ADMIN_PORT, default rtcBasePort-1) — FIREWALLED, never public
+#   sfu RTC   : rtcBasePort..rtcBasePort+workers (WebRtcServer shared ports, UDP+TCP)
+# ──────────────────────────────────────────────────────────────────────────────
+services:
+  sfu:
+    build: .
+    init: true # tini PID-1 → reaps mediasoup C++ worker zombies, forwards SIGTERM (Pitfall 4)
+    network_mode: host # MANDATORY for RTC reachability + correct ICE addresses (Pitfall 2)
+    restart: unless-stopped
+    env_file: .env
+
+  coturn:
+    # Pinned 4.11.0 (RESEARCH A1 / §Package Legitimacy — Approved). Verify the tag
+    # exists on Docker Hub at deploy time.
+    image: coturn/coturn:4.11.0
+    init: true
+    network_mode: host
+    restart: unless-stopped
+    command: ["-c", "/etc/coturn/turnserver.conf"]
+    volumes:
+      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
+      # Real Let's Encrypt cert for turn.sideby.me (NEVER self-signed — strict clients
+      # reject mismatched certs and `turns:` silently never connects — Pitfall 6).
+      # The certbot deploy-hook signals coturn SIGUSR2 to hot-reload these on renewal.
+      - /etc/letsencrypt/live/turn.sideby.me:/etc/coturn/certs/turn.sideby.me:ro
+
+  nginx-sni:
+    # nginx:1.27 ships the stream_ssl_preread module compiled in (RESEARCH A3 —
+    # verify at deploy). The router peeks SNI and proxies the RAW TLS stream; it
+    # does NOT terminate TLS (coturn + the WSS backend own their own TLS — D-06).
+    image: nginx:1.27
+    init: true
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./nginx-sni.conf:/etc/nginx/nginx.conf:ro
