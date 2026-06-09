@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SFU dev harness (D-09) — bytesReceived gate</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 1.5rem; max-width: 960px; }
+      h1 { font-size: 1.2rem; }
+      .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: end; margin-bottom: 1rem; }
+      label { display: flex; flex-direction: column; font-size: 0.8rem; gap: 0.2rem; }
+      input[type='text'] { padding: 0.35rem; min-width: 16rem; }
+      button { padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; }
+      .videos { display: flex; gap: 1rem; flex-wrap: wrap; }
+      video { width: 320px; background: #111; border-radius: 6px; }
+      .readout { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 1rem; margin: 1rem 0; font-family: monospace; }
+      .readout .big { font-size: 1.4rem; font-weight: bold; }
+      #log { background: #0d1117; color: #c9d1d9; padding: 0.75rem; height: 12rem; overflow: auto; white-space: pre-wrap; font-family: monospace; font-size: 0.8rem; border-radius: 6px; }
+      .relay { background: #fff3cd; padding: 0.5rem 0.75rem; border-radius: 6px; }
+    </style>
+  </head>
+  <body>
+    <h1>SFU dev harness (D-09) — throwaway phase-done gate driver</h1>
+    <p>
+      Raw <code>mediasoup-client</code> smoke test. Open this in <strong>two tabs</strong> (or a laptop + a
+      phone on cellular — a genuinely <em>different public network</em>) joining the same
+      <code>mediaRoomId</code>. <strong>PASS = <code>bytesReceived &gt; 0</code> and increasing on both sides.</strong>
+    </p>
+
+    <div class="row">
+      <label
+        >WSS URL
+        <input id="wssUrl" type="text" value="wss://sfu.sideby.me" />
+      </label>
+      <label
+        >mediaRoomId (opaque)
+        <input id="mediaRoomId" type="text" value="dev-room" />
+      </label>
+      <label
+        >participantId (opaque)
+        <input id="participantId" type="text" value="" placeholder="auto-generated" />
+      </label>
+      <label
+        >dev secret (SFU_DEV_SECRET)
+        <input id="devSecret" type="text" value="" />
+      </label>
+    </div>
+
+    <div class="row relay">
+      <!-- GATE 2: force-relay toggle → iceTransportPolicy: 'relay' forces every candidate
+           through coturn (turns:/443). Use from a UDP-blocked / 443-only network. -->
+      <label style="flex-direction: row; align-items: center; gap: 0.5rem"
+        ><input id="forceRelay" type="checkbox" />
+        force-relay (iceTransportPolicy: 'relay' — all media through coturn turns:/443)
+      </label>
+      <button id="startBtn">Start (join → produce → consume)</button>
+    </div>
+
+    <div class="readout">
+      <div>bytesReceived (recv inbound-rtp):</div>
+      <div id="bytesReceived" class="big">0</div>
+      <div>selected candidate pair:</div>
+      <div id="candidatePair">—</div>
+      <div>recv ICE/DTLS state:</div>
+      <div id="iceState">—</div>
+      <div>iceServers from joined:</div>
+      <div id="iceServerCount">—</div>
+      <div>remote peer:</div>
+      <div id="remotePeer">—</div>
+    </div>
+
+    <div class="videos">
+      <div>
+        <div>local (you)</div>
+        <video id="localVideo" autoplay muted playsinline></video>
+      </div>
+      <div>
+        <div>remote (other peer)</div>
+        <video id="remoteVideo" autoplay playsinline></video>
+        <audio id="remoteAudio" autoplay></audio>
+      </div>
+    </div>
+
+    <h2 style="font-size: 1rem">log</h2>
+    <div id="log"></div>
+
+    <!-- Loaded via esbuild/vite bundling of client.ts (see dev/README.md). -->
+    <script type="module">
+      import { start } from './client.ts';
+      document.getElementById('startBtn').addEventListener('click', () => {
+        start().catch(e => {
+          console.error(e);
+          const log = document.getElementById('log');
+          log.textContent = `ERROR: ${e.message}\n` + log.textContent;
+        });
+      });
+    </script>
+  </body>
+</html>
