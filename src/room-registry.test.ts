@@ -6,12 +6,15 @@
 // router boundary). Timers are faked so the grace window is driven explicitly.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// config.ts reads MEDIASOUP_ANNOUNCED_IP (hard-required) at module load. Set it
-// before the registry's transitive `import { config }` resolves, and pin the cap +
+// config.ts reads MEDIASOUP_ANNOUNCED_IP (hard-required) at module load. vitest
+// hoists `vi.mock` AND static imports above top-level statements, so set the env in
+// a vi.hoisted() block — which runs before any import resolves — and pin the cap +
 // grace window so the assertions below are stable regardless of the host env.
-process.env.MEDIASOUP_ANNOUNCED_IP = '203.0.113.10';
-process.env.PARTICIPANT_CAP = '8';
-process.env.RECONNECT_GRACE_MS = '30000';
+vi.hoisted(() => {
+  process.env.MEDIASOUP_ANNOUNCED_IP = '203.0.113.10';
+  process.env.PARTICIPANT_CAP = '8';
+  process.env.RECONNECT_GRACE_MS = '30000';
+});
 
 // Each fake router gets its own close spy so we can assert close-on-reclaim.
 const createdRouters: Array<{ close: ReturnType<typeof vi.fn> }> = [];
