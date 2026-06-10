@@ -32,6 +32,14 @@ export interface SfuConfig {
   turnStaticAuthSecret: string;
   /** Public hostname clients reach coturn on (e.g. turn.sideby.me). */
   turnPublicHost: string;
+  /**
+   * TLS cert/key paths for the WSS backend (D-06). The nginx SNI router does NOT
+   * terminate TLS — it ssl_preread-forwards the raw stream, so the SFU backend owns
+   * its own TLS. When both are set, the gateway listens https; otherwise plain http
+   * (local dev). Empty by default.
+   */
+  tlsCertPath: string;
+  tlsKeyPath: string;
   /** TTL (seconds) for minted TURN credentials. */
   turnCredTtlSec: number;
   /** Max participants per media room (D-11). */
@@ -47,6 +55,8 @@ export const config: SfuConfig = {
   adminSecret: process.env.SFU_ADMIN_SECRET ?? '',
   turnStaticAuthSecret: process.env.TURN_STATIC_AUTH_SECRET ?? '',
   turnPublicHost: process.env.TURN_PUBLIC_HOST ?? '',
+  tlsCertPath: process.env.SFU_TLS_CERT ?? '',
+  tlsKeyPath: process.env.SFU_TLS_KEY ?? '',
   turnCredTtlSec: Number(process.env.TURN_CRED_TTL_SEC ?? 3600),
   participantCap: Number(process.env.PARTICIPANT_CAP ?? 8),
   // D-12: grace default = 30000 (top of the 10000–30000 window).

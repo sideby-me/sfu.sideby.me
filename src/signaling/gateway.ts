@@ -6,10 +6,14 @@
 // at the boundary (T-01-11), enforces join-first (T-01-13), dispatches to handlers.ts,
 // and runs disconnect cleanup on close.
 //
-// TLS termination (RESEARCH Q1): the nginx SNI router (Plan 05) forwards
-// `sfu.sideby.me` → this backend port (default 8443). The SFU itself listens plain
-// (the router terminates TLS), so we attach the ws server to a bare http server.
+// TLS termination (RESEARCH Q1, D-06): the nginx SNI router (Plan 05) uses
+// `ssl_preread` to peek the SNI and forward the RAW (still-encrypted) TLS stream to
+// `sfu.sideby.me` → this backend port (default 8443). The router does NOT terminate
+// TLS, so this backend owns its own TLS: when SFU_TLS_CERT/SFU_TLS_KEY are set
+// (droplet/production) the gateway listens https; otherwise plain http (local dev).
 import http from 'node:http';
+import https from 'node:https';
+import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { AwaitQueue } from 'awaitqueue';
@@ -32,7 +36,8 @@ import type { Notification } from './protocol.js';
 import { verifyJoin } from './auth.js';
 import { logInfo, logWarn, emitIceState } from '../telemetry/events.js';
 
-// Backend WSS port. The nginx SNI router (Plan 05) terminates TLS and forwards here.
+// Backend WSS port. The nginx SNI router (Plan 05) ssl_preread-forwards the raw TLS
+// stream here; this backend terminates its own TLS (see header comment, D-06).
 const WSS_PORT = Number(process.env.SFU_WSS_PORT ?? 8443);
 
 // connectionId → socket, so broadcastToRoom can fan out to other peers' sockets.
@@ -133,7 +138,15 @@ async function dispatch(session: Session, socket: WebSocket, message: InboundMes
  * per-worker WebRtcServer.
  */
 export function initSignalingServer(): WebSocketServer {
-  const httpServer = http.createServer();
+  // The SNI router forwards raw TLS here, so terminate it ourselves when configured
+  // (D-06). Both cert + key required; either missing → plain http (local dev).
+  const tlsEnabled = Boolean(config.tlsCertPath && config.tlsKeyPath);
+  const httpServer = tlsEnabled
+    ? https.createServer({
+        cert: fs.readFileSync(config.tlsCertPath),
+        key: fs.readFileSync(config.tlsKeyPath),
+      })
+    : http.createServer();
   const wss = new WebSocketServer({ server: httpServer });
 
   wss.on('connection', socket => {
@@ -208,7 +221,9 @@ export function initSignalingServer(): WebSocketServer {
       domain: 'signaling',
       event: 'wss_listen',
       port: WSS_PORT,
-      // Surfaced so a misconfig (using the rtc/health port) is obvious in logs.
+      // Surfaced so a misconfig (plain http behind the TLS-passthrough router, or the
+      // wrong rtc/health port) is obvious in logs.
+      tls: tlsEnabled,
       announcedIp: config.announcedIp,
     });
   });

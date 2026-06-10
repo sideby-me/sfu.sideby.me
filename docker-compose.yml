@@ -23,6 +23,13 @@ services:
     network_mode: host # MANDATORY for RTC reachability + correct ICE addresses (Pitfall 2)
     restart: unless-stopped
     env_file: .env
+    volumes:
+      # Real Let's Encrypt cert for sfu.sideby.me — the SFU's WSS backend terminates
+      # its OWN TLS (the nginx SNI router ssl_preread-forwards the raw stream, it does
+      # NOT terminate TLS — D-06). Point SFU_TLS_CERT/SFU_TLS_KEY (.env) at these.
+      # The Node https server reads the cert at boot, so the certbot deploy-hook
+      # restarts this container on renewal.
+      - /etc/letsencrypt/live/sfu.sideby.me:/etc/sfu/certs/sfu.sideby.me:ro
 
   coturn:
     # Pinned 4.11.0 (RESEARCH A1 / §Package Legitimacy — Approved). Verify the tag

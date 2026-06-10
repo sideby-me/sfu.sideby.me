@@ -18,7 +18,7 @@
 set -euo pipefail
 
 COTURN_CONTAINER="${COTURN_CONTAINER:-sfu-coturn-1}"
-WSS_CONTAINER="${WSS_CONTAINER:-sfu-nginx-sni-1}"
+SFU_CONTAINER="${SFU_CONTAINER:-sfu-sfu-1}"
 
 log() { printf '[certbot-deploy-hook] %s\n' "$*"; }
 
@@ -30,13 +30,16 @@ else
   log "WARN: coturn container ${COTURN_CONTAINER} not running — skipping cert reload"
 fi
 
-# 2. Reload the WSS terminator so sfu.sideby.me picks up its renewed cert. nginx
-#    reloads gracefully on the standard reload signal; restart if it is not running.
-if docker ps --format '{{.Names}}' | grep -qx "${WSS_CONTAINER}"; then
-  log "reloading WSS terminator (${WSS_CONTAINER})"
-  docker exec "${WSS_CONTAINER}" nginx -s reload || docker restart "${WSS_CONTAINER}"
+# 2. Restart the SFU so its WSS backend picks up the renewed sfu.sideby.me cert. The
+#    SFU terminates its OWN TLS (the nginx SNI router does NOT — D-06), and the Node
+#    https server reads the cert files only at boot, so a restart is required (a brief
+#    new-connection blip; existing media transports are unaffected). nginx-sni holds no
+#    cert (pure ssl_preread passthrough), so it needs no reload here.
+if docker ps --format '{{.Names}}' | grep -qx "${SFU_CONTAINER}"; then
+  log "restarting SFU (${SFU_CONTAINER}) to reload sfu.sideby.me WSS cert"
+  docker restart "${SFU_CONTAINER}"
 else
-  log "WARN: WSS container ${WSS_CONTAINER} not running — skipping WSS reload"
+  log "WARN: SFU container ${SFU_CONTAINER} not running — skipping WSS cert reload"
 fi
 
 log "deploy-hook complete for: ${RENEWED_DOMAINS:-<unknown>}"
