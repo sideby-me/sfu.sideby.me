@@ -15,7 +15,7 @@
 // Use `listenInfos` (the modern API, not the deprecated wildcard-IP form). Both
 // udp and tcp listen on the SAME port for that worker (udp primary, tcp fallback
 // for UDP-blocked networks).
-import type { Worker, WebRtcServer } from 'mediasoup/types';
+import type { Worker, WebRtcServer, TransportListenInfo } from 'mediasoup/types';
 import { config } from '../config.js';
 
 // Each worker owns exactly one WebRtcServer; the signaling handlers (Plan 03) need
@@ -31,22 +31,28 @@ const serversByWorker = new WeakMap<Worker, WebRtcServer>();
 export async function createWebRtcServer(worker: Worker, workerIndex: number): Promise<WebRtcServer> {
   const port = config.rtcBasePort + workerIndex;
 
-  const server = await worker.createWebRtcServer({
-    listenInfos: [
-      {
-        protocol: 'udp',
-        ip: '0.0.0.0', // bind wildcard inside the container/host…
-        announcedAddress: config.announcedIp, // …but ADVERTISE the static public IP (D-03)
-        port,
-      },
-      {
-        protocol: 'tcp',
-        ip: '0.0.0.0',
-        announcedAddress: config.announcedIp,
-        port,
-      },
-    ],
-  });
+  // Public candidate (direct path, GATE 1): bind the public IP SPECIFICALLY (not
+  // 0.0.0.0) so we can also bind the private IP on the SAME port below without a
+  // wildcard clash. On host-networked public clouds (DO, D-01) the announced IP is a
+  // real local interface, so this binds fine.
+  const listenInfos: TransportListenInfo[] = [
+    { protocol: 'udp', ip: config.announcedIp, announcedAddress: config.announcedIp, port },
+    { protocol: 'tcp', ip: config.announcedIp, announcedAddress: config.announcedIp, port },
+  ];
+
+  // Private/VPC candidate (relay path, GATE 2 / TURN-04): the co-located coturn can't
+  // relay to the SFU's public IP (coturn's own), so advertise a SECOND candidate BOUND
+  // to the private IP. Binding (not just announcing) is the point — the SFU's return
+  // packets to coturn's relay then carry the private source IP coturn has a permission
+  // for. Skipped when MEDIASOUP_PRIVATE_IP is unset (single-IP / non-co-located envs).
+  if (config.privateIp) {
+    listenInfos.push(
+      { protocol: 'udp', ip: config.privateIp, announcedAddress: config.privateIp, port },
+      { protocol: 'tcp', ip: config.privateIp, announcedAddress: config.privateIp, port },
+    );
+  }
+
+  const server = await worker.createWebRtcServer({ listenInfos });
 
   serversByWorker.set(worker, server);
   return server;

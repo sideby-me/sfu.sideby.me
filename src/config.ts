@@ -22,6 +22,15 @@ function requireEnv(name: string): string {
 export interface SfuConfig {
   /** Public IP advertised in ICE candidates (D-03). Required, no default. */
   announcedIp: string;
+  /**
+   * Optional private/VPC IP for the co-located coturn relay leg (D-01). coturn
+   * refuses to relay to its own public IP (which the co-located SFU shares), so when
+   * this is set the WebRtcServer advertises a SECOND candidate BOUND to this private
+   * IP — coturn (bound to public+loopback only) will relay there, and the SFU's return
+   * packets carry the private source IP coturn has permission for. Empty = single
+   * (public) candidate only.
+   */
+  privateIp: string;
   /** Base UDP/TCP port for the per-worker WebRtcServer shared port. */
   rtcBasePort: number;
   /** Dev shared-secret gating the WS join (Phase-1 placeholder; Phase 2 → HS256). */
@@ -50,6 +59,7 @@ export interface SfuConfig {
 
 export const config: SfuConfig = {
   announcedIp: requireEnv('MEDIASOUP_ANNOUNCED_IP'),
+  privateIp: process.env.MEDIASOUP_PRIVATE_IP?.trim() ?? '',
   rtcBasePort: Number(process.env.RTC_BASE_PORT ?? 44444),
   devSecret: process.env.SFU_DEV_SECRET ?? '',
   adminSecret: process.env.SFU_ADMIN_SECRET ?? '',
