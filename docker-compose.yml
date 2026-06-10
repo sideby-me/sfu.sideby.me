@@ -26,10 +26,13 @@ services:
     volumes:
       # Real Let's Encrypt cert for sfu.sideby.me — the SFU's WSS backend terminates
       # its OWN TLS (the nginx SNI router ssl_preread-forwards the raw stream, it does
-      # NOT terminate TLS — D-06). Point SFU_TLS_CERT/SFU_TLS_KEY (.env) at these.
-      # The Node https server reads the cert at boot, so the certbot deploy-hook
-      # restarts this container on renewal.
-      - /etc/letsencrypt/live/sfu.sideby.me:/etc/sfu/certs/sfu.sideby.me:ro
+      # NOT terminate TLS — D-06). The whole /etc/letsencrypt tree is mounted (NOT just
+      # live/<domain>) because live/ holds SYMLINKS into ../../archive/ — a narrow mount
+      # leaves them dangling in the container. Point SFU_TLS_CERT/SFU_TLS_KEY (.env) at
+      # /etc/letsencrypt/live/sfu.sideby.me/{fullchain,privkey}.pem. The Node https
+      # server reads the cert at boot, so the certbot deploy-hook restarts this container
+      # on renewal.
+      - /etc/letsencrypt:/etc/letsencrypt:ro
 
   coturn:
     # Pinned 4.11.0 (RESEARCH A1 / §Package Legitimacy — Approved). Verify the tag
@@ -43,8 +46,11 @@ services:
       - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
       # Real Let's Encrypt cert for turn.sideby.me (NEVER self-signed — strict clients
       # reject mismatched certs and `turns:` silently never connects — Pitfall 6).
-      # The certbot deploy-hook signals coturn SIGUSR2 to hot-reload these on renewal.
-      - /etc/letsencrypt/live/turn.sideby.me:/etc/coturn/certs/turn.sideby.me:ro
+      # Mount the whole /etc/letsencrypt tree (NOT just live/<domain>): live/ holds
+      # SYMLINKS into ../../archive/, so a narrow mount leaves them dangling. turnserver.conf
+      # cert=/pkey= point at /etc/letsencrypt/live/turn.sideby.me/. The certbot deploy-hook
+      # signals coturn SIGUSR2 to hot-reload these on renewal.
+      - /etc/letsencrypt:/etc/letsencrypt:ro
 
   nginx-sni:
     # nginx:1.27 ships the stream_ssl_preread module compiled in (RESEARCH A3 —
