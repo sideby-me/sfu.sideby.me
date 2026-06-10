@@ -4,7 +4,7 @@
 // There is deliberately no product-level room key, user, name, room kind, or OTT
 // field — the SFU knows nothing about sideby products. A conference is exactly one
 // Router plus a Map of opaque participantId → Peer.
-import type { Router, Worker } from 'mediasoup/node/lib/types.js';
+import type { Router, Worker } from 'mediasoup/types';
 import type { Peer } from './peer.js';
 
 export interface MediaRoom {

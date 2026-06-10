@@ -13,7 +13,7 @@
 import os from 'node:os';
 import fs from 'node:fs';
 import * as mediasoup from 'mediasoup';
-import type { Worker } from 'mediasoup/node/lib/types.js';
+import type { Worker } from 'mediasoup/types';
 import { emitWorkerDied, logError, logInfo } from '../telemetry/events.js';
 import { createWebRtcServer } from './webrtc-server.js';
 

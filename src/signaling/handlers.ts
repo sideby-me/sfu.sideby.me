@@ -17,8 +17,8 @@ import type {
   DtlsParameters,
   RtpParameters,
   RtpCapabilities,
-} from 'mediasoup/node/lib/types.js';
-import type { MediaKind } from 'mediasoup/node/lib/rtpParametersTypes.js';
+  MediaKind,
+} from 'mediasoup/types';
 import { ensureRoom, assertCanAdmit, getRoom, handlePeerLeave } from '../room-registry.js';
 import { getWebRtcServer } from '../mediasoup/webrtc-server.js';
 import { Peer } from '../mediasoup/peer.js';

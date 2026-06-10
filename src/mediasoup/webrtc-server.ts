@@ -15,7 +15,7 @@
 // Use `listenInfos` (the modern API, not the deprecated wildcard-IP form). Both
 // udp and tcp listen on the SAME port for that worker (udp primary, tcp fallback
 // for UDP-blocked networks).
-import type { Worker, WebRtcServer } from 'mediasoup/node/lib/types.js';
+import type { Worker, WebRtcServer } from 'mediasoup/types';
 import { config } from '../config.js';
 
 // Each worker owns exactly one WebRtcServer; the signaling handlers (Plan 03) need

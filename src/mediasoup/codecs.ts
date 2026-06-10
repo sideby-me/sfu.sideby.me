@@ -6,9 +6,11 @@
 // (42e01f = constrained baseline, broad browser support) and `level-asymmetry-allowed`.
 // Omitting them does NOT error: the browser silently degrades to VP8-only, so the
 // "H264 supported" claim quietly becomes false (RESEARCH §H264 profile-level-id gotcha).
-import type { RtpCodecCapability } from 'mediasoup/node/lib/types.js';
+// RouterRtpCodecCapability (not RtpCodecCapability) is the type RouterOptions.mediaCodecs
+// expects — it makes preferredPayloadType optional (mediasoup assigns dynamic PTs).
+import type { RouterRtpCodecCapability } from 'mediasoup/types';
 
-export const mediaCodecs: RtpCodecCapability[] = [
+export const mediaCodecs: RouterRtpCodecCapability[] = [
   {
     kind: 'audio',
     mimeType: 'audio/opus',

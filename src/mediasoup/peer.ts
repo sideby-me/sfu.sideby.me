@@ -14,7 +14,7 @@ import type {
   WebRtcTransport,
   Producer,
   Consumer,
-} from 'mediasoup/node/lib/types.js';
+} from 'mediasoup/types';
 
 export class Peer {
   /** Opaque participant key — the ONLY identifier the SFU holds for this peer. */
