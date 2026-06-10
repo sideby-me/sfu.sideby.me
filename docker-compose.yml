@@ -38,6 +38,11 @@ services:
     # Pinned 4.11.0 (RESEARCH A1 / §Package Legitimacy — Approved). Verify the tag
     # exists on Docker Hub at deploy time.
     image: coturn/coturn:4.11.0
+    # Run as root: the image defaults to nobody(65534), which can't read the root-only
+    # LE privkey (0600) behind the 0700 live/archive dirs (coturn issue #268) — so the
+    # turns: TLS listener silently never starts. Root reads the cert at boot AND on the
+    # SIGUSR2 renewal reload (deploy-hook). Dropping privileges would break that reload.
+    user: root
     init: true
     network_mode: host
     restart: unless-stopped
